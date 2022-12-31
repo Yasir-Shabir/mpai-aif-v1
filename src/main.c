@@ -24,6 +24,7 @@ LOG_MODULE_REGISTER(MAIN, LOG_LEVEL_INF);
 #include "button_svc.h"
 #include "led_svc.h"
 #include <aif_controller.h>
+#include<stdlib.h>
 
 /*** START BT ***/
 /* Button value. */

@@ -89,6 +89,7 @@ mpai_error_t MPAI_MessageStore_publish(MPAI_AIM_MessageStore_t *me, mpai_message
 
 int MPAI_MessageStore_poll(MPAI_AIM_MessageStore_t *me, module_t *subscriber, k_timeout_t timeout, subscriber_channel_t channel)
 {
+
 	// check errors
 	if (me == NULL) {
 		LOG_ERR("Found a failure polling: %s.", log_strdup(MPAI_ERR_STR(MPAI_ERROR)));

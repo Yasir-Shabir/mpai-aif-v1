@@ -65,6 +65,13 @@ config MPAI_AIM_MOTION_RECOGNITION_ANALYSIS
 	help
 	  This will store messages like "MCU HAS STOPPED" or "MCU HAS STARTED TO MOVE".    
 
+config MPAI_AIM_MYCOMP_MOTION
+	bool "Enable motion recognition analysis, reading data from inertial unit of mcu"
+    depends on MPAI_AIM_CONTROL_UNIT_SENSORS
+	default y
+	help
+	  This will store messages like "MCU HAS STOPPED" or "MCU HAS STARTED TO MOVE". 
+
 config MPAI_AIM_VOLUME_PEAKS_ANALYSIS
 	bool "Enable volume peaks analysis, reading data from mic of mcu"
 	default y
@@ -92,4 +99,12 @@ config APP_TEST_WRITE_TO_FLASH
 	bool "Enable test write to flash memory"
 	default n
 	help
-	  This will write a test json string to the flash memory 
+	  This will write a test json string to the flash memory
+	
+config  MPAI_AIM_MYCOMPANALYSIS_MOVEMENT_WITH_AUDIO 
+	bool "Enable validation of PEAK VOLUM exercises, in according with audio volume peak"
+  depends on MPAI_AIM_MYCOMP_MOTION
+  depends on MPAI_AIM_VOLUME_PEAKS_ANALYSIS
+	default y
+	help
+	  This will notify to the users (blinking the leds) when the rehabilitation exercises are doing in wrong way MPAI_AIM_VOLUME_PEAKS_ANALYSIS

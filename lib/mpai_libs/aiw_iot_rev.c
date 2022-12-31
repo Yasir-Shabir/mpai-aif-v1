@@ -20,6 +20,8 @@ subscriber_channel_t SENSORS_DATA_CHANNEL;
 subscriber_channel_t MIC_BUFFER_DATA_CHANNEL;
 subscriber_channel_t MIC_PEAK_DATA_CHANNEL;
 subscriber_channel_t MOTION_DATA_CHANNEL;
+subscriber_channel_t MYCOMP_DATA_CHANNEL;
+
 
 #ifdef CONFIG_MPAI_AIM_CONTROL_UNIT_SENSORS_PERIODIC
 
@@ -66,8 +68,13 @@ int MPAI_AIW_IOT_REV_Init()
     message_store_temp_limit_aim = message_store_test_case_aiw;
     message_store_motion_aim = message_store_test_case_aiw;
     message_store_rehabilitation_aim = message_store_test_case_aiw;
+	message_store_mycomp_aim = message_store_test_case_aiw;
+	message_store_mycompanalysis_aim = message_store_test_case_aiw;
+
+
 
     // create channels
+
     SENSORS_DATA_CHANNEL = MPAI_MessageStore_new_channel();
 	channel_map_element_t sensors_data_channel = {._channel_name = MPAI_LIBS_IOT_REV_SENSORS_DATA_CHANNEL_NAME, ._channel = SENSORS_DATA_CHANNEL};
 	message_store_channel_list[mpai_message_store_channel_count++] = sensors_data_channel;
@@ -80,6 +87,11 @@ int MPAI_AIW_IOT_REV_Init()
 	MOTION_DATA_CHANNEL = MPAI_MessageStore_new_channel();
 	channel_map_element_t motion_data_channel = {._channel_name = MPAI_LIBS_IOT_REV_MOTION_DATA_CHANNEL_NAME, ._channel = MOTION_DATA_CHANNEL};
 	message_store_channel_list[mpai_message_store_channel_count++] = motion_data_channel;
+
+	MYCOMP_DATA_CHANNEL = MPAI_MessageStore_new_channel();
+	channel_map_element_t mycomp_data_channel = {._channel_name = MPAI_LIBS_IOT_REV_MYCOMP_DATA_CHANNEL_NAME, ._channel = MYCOMP_DATA_CHANNEL};
+	message_store_channel_list[mpai_message_store_channel_count++] = mycomp_data_channel;
+
 
 	// add aims to list with related callback
 	aim_initialization_cb_t* aim_data_mic_init_cb = (aim_initialization_cb_t *) k_malloc(sizeof(aim_initialization_cb_t));
@@ -126,6 +138,19 @@ int MPAI_AIW_IOT_REV_Init()
 	aim_motion_init_cb->_count_channels = 0;
 	MPAI_AIM_List[mpai_controller_aim_count++] = aim_motion_init_cb;
 
+	////////////////////MYCOMP Initilization
+ 
+	aim_initialization_cb_t* aim_mycomp_init_cb = (aim_initialization_cb_t *) k_malloc(sizeof(aim_initialization_cb_t));
+	aim_mycomp_init_cb->_aim_name = MPAI_LIBS_IOT_REV_MYCOMP_NAME;
+	aim_mycomp_init_cb->_subscriber = mycomp_aim_subscriber;
+	aim_mycomp_init_cb->_start =  mycomp_aim_start;
+	aim_mycomp_init_cb->_stop = mycomp_aim_stop;
+	aim_mycomp_init_cb->_resume = mycomp_aim_resume;
+	aim_mycomp_init_cb->_pause = mycomp_aim_pause;
+	aim_mycomp_init_cb->_input_channels = NULL;
+	aim_mycomp_init_cb->_count_channels = 0;
+	MPAI_AIM_List[mpai_controller_aim_count++] = aim_mycomp_init_cb;
+
 	aim_initialization_cb_t* aim_rehabilitation_init_cb = (aim_initialization_cb_t *) k_malloc(sizeof(aim_initialization_cb_t));
 	aim_rehabilitation_init_cb->_aim_name = MPAI_LIBS_IOT_REV_AIM_REHABILITATION_NAME;
 	aim_rehabilitation_init_cb->_subscriber = rehabilitation_aim_subscriber;
@@ -136,6 +161,20 @@ int MPAI_AIW_IOT_REV_Init()
 	aim_rehabilitation_init_cb->_input_channels = NULL;
 	aim_rehabilitation_init_cb->_count_channels = 0;
 	MPAI_AIM_List[mpai_controller_aim_count++] = aim_rehabilitation_init_cb;
+
+
+	/// @brief ///////////////////////mycompanalysis
+	/// @return 
+	aim_initialization_cb_t* aim_mycompanalysis_init_cb = (aim_initialization_cb_t *) k_malloc(sizeof(aim_initialization_cb_t));
+	aim_rehabilitation_init_cb->_aim_name = MPAI_LIBS_IOT_REV_AIM_REHABILITATION_NAME;
+	aim_rehabilitation_init_cb->_subscriber = mycompanalysis_aim_subscriber;
+	aim_rehabilitation_init_cb->_start = mycompanalysis_aim_start;
+	aim_rehabilitation_init_cb->_stop = mycompanalysis_aim_stop;
+	aim_rehabilitation_init_cb->_resume = mycompanalysis_aim_resume;
+	aim_rehabilitation_init_cb->_pause = mycompanalysis_aim_pause;
+	aim_rehabilitation_init_cb->_input_channels = NULL;
+	aim_rehabilitation_init_cb->_count_channels = 0;
+	MPAI_AIM_List[mpai_controller_aim_count++] = aim_mycompanalysis_init_cb;
 
 	#ifdef CONFIG_MPAI_AIM_CONTROL_UNIT_SENSORS_PERIODIC
 			/* start periodic timer to switch status */
@@ -162,6 +201,12 @@ void MPAI_AIW_IOT_REV_Stop()
 	#ifdef CONFIG_MPAI_AIM_VOLUME_PEAKS_ANALYSIS
 		MPAI_AIFM_AIM_Stop(MPAI_LIBS_IOT_REV_AIM_DATA_MIC_NAME);
 	#endif
+	#ifdef CONFIG_MPAI_AIM_MYCOMP_MOTION
+		MPAI_AIFM_AIM_Stop(MPAI_LIBS_IOT_REV_MYCOMP_NAME);
+	#endif
+	#ifdef CONFIG_MPAI_AIM_MYCOMPANALYSIS_MOVEMENT_WITH_AUDIO
+		MPAI_AIFM_AIM_Stop(MPAI_LIBS_IOT_REV_AIM_MYCOMPANALYSIS_NAME);
+	#endif
 }
 
 void MPAI_AIW_IOT_REV_Resume()
@@ -180,6 +225,12 @@ void MPAI_AIW_IOT_REV_Resume()
 	#endif
 	#ifdef CONFIG_MPAI_AIM_MOTION_RECOGNITION_ANALYSIS
 		MPAI_AIFM_AIM_Resume(MPAI_LIBS_IOT_REV_AIM_MOTION_NAME);
+	#endif
+	#ifdef CONFIG_MPAI_AIM_MYCOMP_MOTION
+		MPAI_AIFM_AIM_Resume(MPAI_LIBS_IOT_REV_MYCOMP_NAME);
+	#endif
+	#ifdef CONFIG_MPAI_AIM_MYCOMPANALYSIS_MOVEMENT_WITH_AUDIO
+		MPAI_AIFM_AIM_Stop(MPAI_LIBS_IOT_REV_AIM_MYCOMPANALYSIS_NAME);
 	#endif
 }
 
@@ -200,6 +251,12 @@ void MPAI_AIW_IOT_REV_Pause()
 	#ifdef CONFIG_MPAI_AIM_VOLUME_PEAKS_ANALYSIS
 		MPAI_AIFM_AIM_Pause(MPAI_LIBS_IOT_REV_AIM_DATA_MIC_NAME);
 	#endif
+	#ifdef CONFIG_MPAI_AIM_MYCOMP_MOTION
+		MPAI_AIFM_AIM_Pause(MPAI_LIBS_IOT_REV_MYCOMP_NAME);
+	#endif
+	#ifdef CONFIG_MPAI_AIM_MYCOMPANALYSIS_MOVEMENT_WITH_AUDIO
+		MPAI_AIFM_AIM_Stop(MPAI_LIBS_IOT_REV_AIM_MYCOMPANALYSIS_NAME);
+	#endif
 }
 
 void MPAI_AIW_IOT_REV_Destroy() 
@@ -218,7 +275,7 @@ void MPAI_AIW_IOT_REV_Destroy()
 	#endif
 	#ifdef CONFIG_MPAI_AIM_MOTION_RECOGNITION_ANALYSIS
 		{
-			aim_initialization_cb_t* aim_init = MPAI_Controller_Find_AIM_Init_Config(MPAI_LIBS_IOT_REV_AIM_MOTION_NAME);
+			aim_initialization_cb_t* aim_init = MPAI_Controller_Find_AIM_nit_Config(MPAI_LIBS_IOT_REV_AIM_MOTION_NAME);
 			MPAI_AIM_Destructor(aim_init->_aim);
 		}
 	#endif
@@ -237,6 +294,18 @@ void MPAI_AIW_IOT_REV_Destroy()
 	#ifdef CONFIG_MPAI_AIM_VOLUME_PEAKS_ANALYSIS
 		{
 			aim_initialization_cb_t* aim_init = MPAI_Controller_Find_AIM_Init_Config(MPAI_LIBS_IOT_REV_AIM_DATA_MIC_NAME);
+			MPAI_AIM_Destructor(aim_init->_aim);
+		}
+	#endif
+	#ifdef CONFIG_MPAI_AIM_MYCOMP_MOTION
+		{
+			aim_initialization_cb_t* aim_init = MPAI_Controller_Find_AIM_Init_Config(MPAI_LIBS_IOT_REV_MYCOMP_NAME);
+			MPAI_AIM_Destructor(aim_init->_aim);
+		}
+	#endif
+	#ifdef CONFIG_MPAI_AIM_MYCOMPANALYSIS_MOVEMENT_WITH_AUDIO
+		{
+			aim_initialization_cb_t* aim_init = MPAI_Controller_Find_AIM_Init_Config(MPAI_LIBS_IOT_REV_AIM_MYCOMPANALYSIS_NAME);
 			MPAI_AIM_Destructor(aim_init->_aim);
 		}
 	#endif

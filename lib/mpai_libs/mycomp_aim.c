@@ -7,10 +7,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "motion_aim.h"
+#include "mycomp_aim.h"
 #include <logging/log.h>
 
-LOG_MODULE_REGISTER(MPAI_LIBS_MOTION_AIM, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(MPAI_LIBS_MYCOMPMOTION_AIM, LOG_LEVEL_INF);
 
 /*************** DEFINE ***************/
 
@@ -36,30 +36,30 @@ LOG_MODULE_REGISTER(MPAI_LIBS_MOTION_AIM, LOG_LEVEL_INF);
 /* last time (in ms) that mcu has stopped */
 static int64_t mcu_has_stopped_ts = 0.0;
 /* motion data to send to message store */
-static motion_data_t motion_data = {.accel_total = -1.0, .motion_type = UNKNOWN};
+static mycomp_data_t mycomp_motion_data = {.mycomp_accel_total = -1.0, .mycomp_type = MYCOMP_UNKNOWN};
 
-static void publish_motion_to_message_store(MOTION_TYPE motion_type, float accel_total)
+static void publish_mycomp_to_message_store(MYCOMP_TYPE mycomp_motion_type, float mycomp_accel_total)
 {
 	//LOG_INF("Start of publish_MOTION_to_message_store");
-	motion_data.motion_type = motion_type;
-	motion_data.accel_total = accel_total;
+	mycomp_motion_data.mycomp_type = mycomp_motion_type;
+	mycomp_motion_data.mycomp_accel_total = mycomp_accel_total;
 	
 	// Publish sensor message 
-	mpai_message_t msg = {.data = &motion_data,.timestamp = k_uptime_get()};
+	mpai_message_t msg = {.data = &mycomp_motion_data,.timestamp = k_uptime_get()};
 
-	MPAI_MessageStore_publish(message_store_motion_aim, &msg, MOTION_DATA_CHANNEL);
+	MPAI_MessageStore_publish(message_store_mycomp_aim, &msg, MYCOMP_DATA_CHANNEL);
 
-	LOG_DBG("Message motion published");
+	LOG_DBG("Message mycomp motion published");
 }
 
 /**************** THREADS **********************/
 
-static k_tid_t subscriber_motion_thread_id;
+static k_tid_t subscriber_mycomp_thread_id;
 
-K_THREAD_STACK_DEFINE(thread_sub_motion_stack_area, STACKSIZE);
-static struct k_thread thread_sub_motion_sens_data;
+K_THREAD_STACK_DEFINE(thread_sub_mycomp_stack_area, STACKSIZE);
+static struct k_thread thread_sub_mycomp_sens_data;
 
-void th_subscribe_motion_data(void *dummy1, void *dummy2, void *dummy3)
+void th_subscribe_mycomp_data(void *dummy1, void *dummy2, void *dummy3)
 {
 	ARG_UNUSED(dummy1);
 	ARG_UNUSED(dummy2);
@@ -72,7 +72,7 @@ void th_subscribe_motion_data(void *dummy1, void *dummy2, void *dummy3)
 	while (1)
 	{
 		/* this function will return once new data has arrived, or upon timeout (1000ms in this case). */
-		int ret = MPAI_MessageStore_poll(message_store_motion_aim, motion_aim_subscriber, K_MSEC(SENSORS_DATA_POLLING_MS), SENSORS_DATA_CHANNEL);
+		int ret = MPAI_MessageStore_poll(message_store_mycomp_aim, mycomp_aim_subscriber, K_MSEC(SENSORS_DATA_POLLING_MS), SENSORS_DATA_CHANNEL);
 
 		/* ret returns:
 		 * a positive value if new data was successfully returned
@@ -81,8 +81,8 @@ void th_subscribe_motion_data(void *dummy1, void *dummy2, void *dummy3)
 		 */
 		if (ret > 0)
 		{
-			MPAI_MessageStore_copy(message_store_motion_aim, motion_aim_subscriber, SENSORS_DATA_CHANNEL, &aim_message);
-			LOG_DBG("Received from timestamp %lld\n", aim_message.timestamp);
+			MPAI_MessageStore_copy(message_store_mycomp_aim, mycomp_aim_subscriber, SENSORS_DATA_CHANNEL, &aim_message);
+			LOG_DBG("Received from timestamp of mycomp motion%lld\n", aim_message.timestamp);
 
 			sensor_result_t *sensor_data = (sensor_result_t *)aim_message.data;
 
@@ -108,13 +108,13 @@ void th_subscribe_motion_data(void *dummy1, void *dummy2, void *dummy3)
 
 						printk("MCU Motion stopped: Accel (m.s-2): tot: %.5f\n", accel_tot);
 
-						publish_motion_to_message_store(STOPPED, accel_tot);
+						publish_mycomp_to_message_store(MYCOMP_STOPPED, accel_tot);
 					}
 				} else 
 				{	
 					if (mcu_has_stopped_ts > 0) 
 					{
-						printk("MCU Motion started: Accel (m.s-2): tot: %.5f\n", accel_tot);
+						printk("MCU Motion OF MYCOMP started: Accel (m.s-2): tot: %.5f\n", accel_tot);
 
 						// at the moment is commented
 						// publish_motion_to_message_store(STARTED, accel_tot);
@@ -137,51 +137,51 @@ void th_subscribe_motion_data(void *dummy1, void *dummy2, void *dummy3)
 }
 
 /************** EXECUTIONS ***************/
-mpai_error_t* motion_aim_subscriber()
+mpai_error_t* mycomp_aim_subscriber()
 {
 	MPAI_ERR_INIT(err, MPAI_AIF_OK);
 	return &err;
 }
 
-mpai_error_t *motion_aim_start()
+mpai_error_t *mycomp_aim_start()
 {
 	mcu_has_stopped_ts = k_uptime_get();
 
 	// CREATE SUBSCRIBER
-	subscriber_motion_thread_id = k_thread_create(&thread_sub_motion_sens_data, thread_sub_motion_stack_area,
-										 K_THREAD_STACK_SIZEOF(thread_sub_motion_stack_area),
-										 th_subscribe_motion_data, NULL, NULL, NULL,
+	subscriber_mycomp_thread_id = k_thread_create(&thread_sub_mycomp_sens_data, thread_sub_mycomp_stack_area,
+										 K_THREAD_STACK_SIZEOF(thread_sub_mycomp_stack_area),
+										 th_subscribe_mycomp_data, NULL, NULL, NULL,
 										 PRIORITY, 0, K_NO_WAIT);
-	k_thread_name_set(&thread_sub_motion_sens_data, "thread_sub_motion");
+	k_thread_name_set(&thread_sub_mycomp_sens_data, "thread_sub_motion");
 
 	// START THREAD
-	k_thread_start(subscriber_motion_thread_id);
+	k_thread_start(subscriber_mycomp_thread_id);
 
 	MPAI_ERR_INIT(err, MPAI_AIF_OK);
 	return &err;
 }
 
-mpai_error_t *motion_aim_stop()
+mpai_error_t *mycomp_aim_stop()
 {
-	k_thread_abort(subscriber_motion_thread_id);
+	k_thread_abort(subscriber_mycomp_thread_id);
 	LOG_INF("Execution stopped");
 
 	MPAI_ERR_INIT(err, MPAI_AIF_OK);
 	return &err;
 }
 
-mpai_error_t *motion_aim_resume()
+mpai_error_t *mycomp_aim_resume()
 {
-	k_thread_resume(subscriber_motion_thread_id);
+	k_thread_resume(subscriber_mycomp_thread_id);
 	LOG_INF("Execution resumed");
 
 	MPAI_ERR_INIT(err, MPAI_AIF_OK);
 	return &err;
 }
 
-mpai_error_t *motion_aim_pause()
+mpai_error_t *mycomp_aim_pause()
 {
-	k_thread_suspend(subscriber_motion_thread_id);
+	k_thread_suspend(subscriber_mycomp_thread_id);
 	LOG_INF("Execution paused");
 
 	MPAI_ERR_INIT(err, MPAI_AIF_OK);
